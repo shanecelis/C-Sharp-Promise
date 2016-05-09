@@ -777,6 +777,24 @@ namespace RSG
 			);
 		}
 
+    /// <summary>
+		/// Chain a sequence of operations using promises.
+		/// Takes a collection of functions each of which starts an async operation and yields a promise.
+		/// </summary>
+		public static IPromise<IEnumerable<PromisedT>>
+      Sequence<PromisedT>(PromisedT init,
+                          IEnumerable<Func<IPromise<PromisedT>>> fns)
+		{
+      var result = new List<PromisedT>();
+			return fns.Aggregate(
+				Promise<PromisedT>.Resolved(init),
+				(prevPromise, fn) =>
+				{
+					return prevPromise.Then((x) => { result.Add(x); fn(); });
+				}
+                           ).Then((x) => Promise<IEnumerable<PromisedT>>.Resolved(result));
+		}
+
 		/// <summary>
 		/// Takes a function that yields an enumerable of promises.
 		/// Returns a promise that resolves when the first of the promises has resolved.
