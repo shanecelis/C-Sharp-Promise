@@ -742,6 +742,8 @@ namespace RSG
 			return resultPromise;
 		}
 
+    
+
 		/// <summary>
 		/// Chain a sequence of operations using promises.
 		/// Reutrn a collection of functions each of which starts an async operation and yields a promise.
@@ -782,17 +784,31 @@ namespace RSG
 		/// Takes a collection of functions each of which starts an async operation and yields a promise.
 		/// </summary>
 		public static IPromise<IEnumerable<PromisedT>>
-      Sequence<PromisedT>(PromisedT init,
-                          IEnumerable<Func<IPromise<PromisedT>>> fns)
+      Sequence<PromisedT>(IEnumerable<Func<IPromise<PromisedT>>> fns)
 		{
+      var resultPromise = new Promise<IEnumerable<PromisedT>>();
       var result = new List<PromisedT>();
-			return fns.Aggregate(
-				Promise<PromisedT>.Resolved(init),
+			fns.Aggregate(
+				Promise.Resolved(),
 				(prevPromise, fn) =>
 				{
-					return prevPromise.Then((x) => { result.Add(x); return fn(); });
-				}
-                           ).Then((x) => Promise<IEnumerable<PromisedT>>.Resolved(result));
+					return prevPromise.Then(() =>
+              {
+                return fn()
+                .Catch(ex => {
+                    if (resultPromise.CurState == PromiseState.Pending)
+                      resultPromise.Reject(ex);
+                  })
+                .Then((x) => {
+                    result.Add(x);
+                    return Promise.Resolved();           
+                  });
+              }
+                                  );
+        }).Done(() =>
+                resultPromise.Resolve(result));
+    //Then((x) => Promise<IEnumerable<PromisedT>>.Resolved(result)); // At the end we bundle up all the results
+    return resultPromise;
 		}
 
 		/// <summary>
