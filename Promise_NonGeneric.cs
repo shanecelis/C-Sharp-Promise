@@ -790,7 +790,7 @@ namespace RSG
 				Promise<PromisedT>.Resolved(init),
 				(prevPromise, fn) =>
 				{
-					return prevPromise.Then((x) => { result.Add(x); fn(); });
+					return prevPromise.Then((x) => { result.Add(x); return fn(); });
 				}
                            ).Then((x) => Promise<IEnumerable<PromisedT>>.Resolved(result));
 		}
