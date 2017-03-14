@@ -755,6 +755,11 @@ namespace RSG
 			return Then(() => Sequence(chain()));
 		}
 
+		public IPromise<IEnumerable<PromisedT>> ThenSequence<PromisedT>(Func<IEnumerable<Func<IPromise<PromisedT>>>> chain)
+		{
+			return Then<IEnumerable<PromisedT>>(() => Sequence<PromisedT>(chain()));
+		}
+
 		/// <summary>
 		/// Chain a number of operations using promises.
 		/// Takes a number of functions each of which starts an async operation and yields a promise.
@@ -786,26 +791,27 @@ namespace RSG
 		public static IPromise<IEnumerable<PromisedT>>
       Sequence<PromisedT>(IEnumerable<Func<IPromise<PromisedT>>> fns)
 		{
+      // Man, this seems way too complicated.
       var resultPromise = new Promise<IEnumerable<PromisedT>>();
       var result = new List<PromisedT>();
 			fns.Aggregate(
 				Promise.Resolved(),
-				(prevPromise, fn) =>
-				{
-					return prevPromise.Then(() =>
-              {
-                return fn()
-                .Catch(ex => {
-                    if (resultPromise.CurState == PromiseState.Pending)
-                      resultPromise.Reject(ex);
-                  })
-                .Then((x) => {
-                    result.Add(x);
-                    return Promise.Resolved();           
-                  });
-              }
-                                  );
-        }).Done(() =>
+				(prevPromise, fn) => {
+					return prevPromise.Then(() => {
+              return fn()
+              .Catch(ex => {
+                  if (resultPromise.CurState == PromiseState.Pending)
+                    resultPromise.Reject(ex);
+                })
+              .Then((x) => {
+                  result.Add(x);
+                  return Promise.Resolved();
+                });
+            }).Catch(ex => {
+                if (resultPromise.CurState == PromiseState.Pending)
+                  resultPromise.Reject(ex);
+              });
+        }).Then(() =>
                 resultPromise.Resolve(result));
     //Then((x) => Promise<IEnumerable<PromisedT>>.Resolved(result)); // At the end we bundle up all the results
     return resultPromise;
